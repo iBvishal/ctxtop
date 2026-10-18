@@ -9,6 +9,7 @@ package llamacpp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -64,27 +65,48 @@ type Poller struct {
 	BaseURL string
 	Client  *http.Client
 	// Now is the clock; tests replace it.
-	Now  func() time.Time
-	prev *sample
+	Now func() time.Time
+	// PropsEvery is how often /props is read again. The model and settings
+	// only change when the server restarts or swaps models.
+	PropsEvery time.Duration
+
+	prev    *sample
+	props   *props
+	propsAt time.Time
 }
 
 func NewPoller(baseURL string) *Poller {
 	return &Poller{
-		BaseURL: strings.TrimRight(baseURL, "/"),
-		Client:  &http.Client{Timeout: 2 * time.Second},
-		Now:     time.Now,
+		BaseURL:    strings.TrimRight(baseURL, "/"),
+		Client:     &http.Client{Timeout: 2 * time.Second},
+		Now:        time.Now,
+		PropsEvery: 10 * time.Second,
 	}
 }
+
+// statusError is a response with a status other than 200: the server is up
+// but refused the request.
+type statusError struct {
+	path, msg string
+}
+
+func (e *statusError) Error() string { return "GET " + e.path + ": " + e.msg }
 
 // Poll reads the server once. The first poll has no rates; later polls
 // measure against the one before.
 func (p *Poller) Poll(ctx context.Context) (snapshot.Server, error) {
 	srv := snapshot.Server{Runtime: Runtime, URL: p.BaseURL}
 
-	var pr props
-	if err := p.get(ctx, "/props", &pr); err != nil {
-		return srv, err
+	now := p.Now()
+	if p.props == nil || now.Sub(p.propsAt) >= p.PropsEvery {
+		var fresh props
+		if err := p.get(ctx, "/props", &fresh); err != nil {
+			p.props, p.prev = nil, nil
+			return srv, err
+		}
+		p.props, p.propsAt = &fresh, now
 	}
+	pr := *p.props
 	srv.Build = pr.BuildInfo
 	model := snapshot.Model{
 		Name:           modelName(pr),
@@ -94,6 +116,12 @@ func (p *Poller) Poll(ctx context.Context) (snapshot.Server, error) {
 
 	var slots []slot
 	if err := p.get(ctx, "/slots", &slots); err != nil {
+		var se *statusError
+		if !errors.As(err, &se) {
+			// The server went away; read /props again when it's back.
+			p.props, p.prev = nil, nil
+			return srv, err
+		}
 		// --no-slots or --api-key: keep what /props told us.
 		srv.Error = err.Error()
 		srv.Models = []snapshot.Model{model}
@@ -101,7 +129,7 @@ func (p *Poller) Poll(ctx context.Context) (snapshot.Server, error) {
 		return srv, nil
 	}
 
-	cur := &sample{at: p.Now(), slots: make(map[int]slot, len(slots))}
+	cur := &sample{at: now, slots: make(map[int]slot, len(slots))}
 	for _, s := range slots {
 		cur.slots[s.ID] = s
 		model.Slots = append(model.Slots, p.slotState(s, cur.at))
@@ -170,7 +198,7 @@ func (p *Poller) get(ctx context.Context, path string, v any) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %s: %s", path, errorMessage(resp.Status, body))
+		return &statusError{path: path, msg: errorMessage(resp.Status, body)}
 	}
 	if err := json.Unmarshal(body, v); err != nil {
 		return fmt.Errorf("GET %s: %w", path, err)

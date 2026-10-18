@@ -20,6 +20,7 @@ type Snapshot struct {
 type Host struct {
 	OS        string `json:"os"`
 	Arch      string `json:"arch"`
+	Chip      string `json:"chip,omitempty"`
 	MemTotal  uint64 `json:"mem_total"`
 	MemUsed   uint64 `json:"mem_used"`
 	SwapTotal uint64 `json:"swap_total"`
@@ -27,6 +28,19 @@ type Host struct {
 	// Pressure is "normal", "warn" or "critical", or empty when the OS
 	// doesn't report it.
 	Pressure string `json:"pressure,omitempty"`
+	// GPUUtil is the GPU's busy percentage; GPUMem is GPU memory in use in
+	// bytes. Both come from the Apple GPU driver.
+	GPUUtil *float64 `json:"gpu_util,omitempty"`
+	GPUMem  uint64   `json:"gpu_mem,omitempty"`
+	// Power is measured between two reads, so the first read has none.
+	Power *Power `json:"power,omitempty"`
+}
+
+// Power is average power in watts since the previous read.
+type Power struct {
+	CPU float64 `json:"cpu"`
+	GPU float64 `json:"gpu"`
+	ANE float64 `json:"ane"`
 }
 
 // Server is one running inference server.

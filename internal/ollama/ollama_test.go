@@ -2,11 +2,13 @@ package ollama
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -105,22 +107,71 @@ func TestParseAccessLog(t *testing.T) {
 	}
 }
 
-func TestReadTailStartsAtLine(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "log")
-	if err := os.WriteFile(path, []byte("first line\nsecond line\nthird\n"), 0o600); err != nil {
+func TestAccessLogReadIncrementally(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "server.log")
+	line := func(sec int, p string) string {
+		return fmt.Sprintf("[GIN] 2026/10/18 - 12:00:%02d | 200 |   1.5s |       127.0.0.1 | POST     %q\n", sec, p)
+	}
+	appendLog := func(s string) {
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		if _, err := f.WriteString(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	p := NewPoller("http://unused")
+	p.LogPaths = []string{path}
+	p.Now = func() time.Time { return time.Date(2026, 10, 18, 12, 0, 30, 0, time.Local) }
+
+	appendLog(line(1, "/api/chat"))
+	if got := p.recentRequests(); len(got) != 1 {
+		t.Fatalf("first read: %d requests", len(got))
+	}
+	// A line still being written isn't parsed until it ends.
+	full := line(2, "/api/generate")
+	appendLog(full[:20])
+	if got := p.recentRequests(); len(got) != 1 {
+		t.Fatalf("partial line: %d requests", len(got))
+	}
+	appendLog(full[20:] + line(3, "/v1/chat/completions"))
+	if got := p.recentRequests(); len(got) != 3 || got[2].Path != "/v1/chat/completions" {
+		t.Fatalf("after append: %+v", got)
+	}
+	// Rotation: the file shrinks and is read from the start.
+	if err := os.WriteFile(path, []byte(line(4, "/api/embed")), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	f, err := os.Open(path)
-	if err != nil {
+	if got := p.recentRequests(); len(got) != 4 || got[3].Path != "/api/embed" {
+		t.Fatalf("after rotation: %+v", got)
+	}
+	// Requests age out of the window.
+	p.Now = func() time.Time { return time.Date(2026, 10, 18, 12, 1, 4, 0, time.Local) }
+	if got := p.recentRequests(); len(got) != 1 {
+		t.Errorf("after the window: %+v", got)
+	}
+}
+
+func TestAccessLogFirstReadIsBounded(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "server.log")
+	var b strings.Builder
+	for b.Len() < maxLogRead+4096 {
+		b.WriteString("[GIN] 2026/10/18 - 12:00:01 | 200 |   45µs |       127.0.0.1 | GET      \"/api/ps\"\n")
+	}
+	b.WriteString("[GIN] 2026/10/18 - 12:00:02 | 200 |   1.5s |       127.0.0.1 | POST     \"/api/chat\"\n")
+	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
-	b, err := readTail(f, 15)
-	if err != nil {
-		t.Fatal(err)
+	p := NewPoller("http://unused")
+	p.LogPaths = []string{path}
+	p.Now = func() time.Time { return time.Date(2026, 10, 18, 12, 0, 30, 0, time.Local) }
+	if got := p.recentRequests(); len(got) != 1 || got[0].Path != "/api/chat" {
+		t.Errorf("got %+v", got)
 	}
-	if string(b) != "third\n" {
-		t.Errorf("tail = %q", b)
+	if p.logOff != int64(b.Len()) {
+		t.Errorf("offset %d, want %d", p.logOff, b.Len())
 	}
 }
 

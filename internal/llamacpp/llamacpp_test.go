@@ -203,7 +203,9 @@ func TestPropsAreCached(t *testing.T) {
 	if propsReads != 1 {
 		t.Errorf("/props read %d times, want 1", propsReads)
 	}
-	p.Poll(context.Background()) // 12 s
+	if _, err := p.Poll(context.Background()); err != nil { // 12 s
+		t.Fatal(err)
+	}
 	if propsReads != 2 {
 		t.Errorf("/props read %d times after 12 s, want 2", propsReads)
 	}

@@ -7,10 +7,16 @@
 ## Install
 
 ```sh
+brew install --cask iBvishal/tap/ctxtop
+```
+
+Or download a binary for macOS (Apple Silicon or Intel) or Linux from [Releases](https://github.com/iBvishal/ctxtop/releases), or build it with Go 1.26 or later:
+
+```sh
 go install github.com/iBvishal/ctxtop@latest
 ```
 
-Needs Go 1.26 or later. A Homebrew tap comes with v0.1.
+Release archives come with build provenance: `gh attestation verify <archive> --repo iBvishal/ctxtop`.
 
 ## Use
 

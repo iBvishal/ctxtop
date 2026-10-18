@@ -1,0 +1,5 @@
+{
+  "version": 1, "time": "2026-10-18T12:00:00Z",
+  "host": {"os": "darwin", "arch": "arm64", "mem_total": 17179869184, "mem_used": 16900000000, "pressure": "critical"},
+  "servers": []
+}

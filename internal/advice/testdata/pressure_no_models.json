@@ -1,0 +1,7 @@
+{
+  "version": 1, "time": "2026-10-18T12:00:00Z",
+  "host": {"os": "darwin", "arch": "arm64", "mem_total": 17179869184, "mem_used": 16100000000, "pressure": "warn"},
+  "servers": [
+    {"runtime": "ollama", "url": "http://127.0.0.1:11434", "models": []}
+  ]
+}

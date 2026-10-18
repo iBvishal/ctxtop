@@ -2,6 +2,8 @@
 
 `top` for local LLMs. ctxtop finds the inference servers running on your machine and shows, for each model, how fast it's going, how full its context is and how much memory it's using. Then it tells you what to change.
 
+![ctxtop watching llama-server and Ollama: a slot fills to 100% and ctxtop says to restart llama-server with a larger -c](docs/demo.gif)
+
 > **Status: early.** ctxtop reads llama.cpp's `llama-server`, Ollama and LM Studio in a live terminal view and tells you what to change. Not released yet.
 
 ## Install

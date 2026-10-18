@@ -1,0 +1,1 @@
+[{"id":0,"id_task":7,"n_ctx":8192,"speculative":false,"is_processing":true,"n_prompt_tokens":6200,"n_prompt_tokens_processed":6100,"n_prompt_tokens_cache":0,"next_token":[{"has_next_token":true,"has_new_line":false,"n_remain":-1,"n_decoded":88}]}]

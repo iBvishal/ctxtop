@@ -1,0 +1,1 @@
+{"default_generation_settings":{"n_ctx":8192},"total_slots":1,"model_alias":"/home/demo/.ollama/models/blobs/sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e","model_path":"/home/demo/.ollama/models/blobs/sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e","endpoint_metrics":false,"build_info":"b11669-acme"}

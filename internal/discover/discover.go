@@ -10,7 +10,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -21,19 +20,18 @@ import (
 	"time"
 
 	"github.com/iBvishal/ctxtop/internal/llamacpp"
+	"github.com/iBvishal/ctxtop/internal/lmstudio"
+	"github.com/iBvishal/ctxtop/internal/ollama"
 )
 
-// Ollama is the runtime name for servers ctxtop can find but not read yet.
-const Ollama = "ollama"
-
 // DefaultPorts are probed even when no known process owns them:
-// llama-server and Ollama.
-var DefaultPorts = []int{8080, 11434}
+// llama-server, Ollama and LM Studio.
+var DefaultPorts = []int{8080, 11434, 1234}
 
 // processRuntimes maps a process name to its runtime.
 var processRuntimes = map[string]string{
 	"llama-server": llamacpp.Runtime,
-	"ollama":       Ollama,
+	"ollama":       ollama.Runtime,
 }
 
 // Found is one server discovery turned up.
@@ -42,11 +40,15 @@ type Found struct {
 	URL     string
 	PID     int
 	Process string
+	// Runners are the URLs of llama-server processes an Ollama server
+	// started to run its models.
+	Runners []string
 }
 
 // Listener is one listening TCP socket.
 type Listener struct {
 	PID     int
+	PPID    int
 	Command string
 	Host    string
 	Port    int
@@ -74,17 +76,23 @@ func (d *Discoverer) Find(ctx context.Context) []Found {
 	byURL := map[string]Found{}
 	listeners, _ := d.Listeners(ctx)
 	owner := map[int]Listener{}
+	ports := append([]int(nil), d.Ports...)
 	for _, l := range listeners {
 		owner[l.Port] = l
 		rt, ok := processRuntimes[l.Command]
 		if !ok {
+			// LM Studio serves from its app process; its port is set in
+			// the app, so probe whatever it listens on.
+			if strings.Contains(strings.ToLower(l.Command), "lm studio") {
+				ports = append(ports, l.Port)
+			}
 			continue
 		}
 		u := url(l.Host, l.Port)
 		byURL[u] = Found{Runtime: rt, URL: u, PID: l.PID, Process: l.Command}
 	}
 
-	for _, port := range d.Ports {
+	for _, port := range ports {
 		if f, ok := foundOnPort(byURL, port); ok && f.Runtime != "" {
 			continue
 		}
@@ -105,16 +113,50 @@ func (d *Discoverer) Find(ctx context.Context) []Found {
 		byURL[u] = f
 	}
 
-	out := make([]Found, 0, len(byURL))
-	for _, f := range byURL {
-		out = append(out, f)
-	}
+	out := adoptRunners(byURL, listeners)
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Runtime != out[j].Runtime {
 			return out[i].Runtime < out[j].Runtime
 		}
 		return out[i].URL < out[j].URL
 	})
+	return out
+}
+
+// adoptRunners folds the processes an Ollama server started into it. Recent
+// Ollama runs each model in a child llama-server on a random port; those
+// become the server's Runners instead of separate servers.
+func adoptRunners(byURL map[string]Found, listeners []Listener) []Found {
+	parent := map[int]int{}
+	for _, l := range listeners {
+		parent[l.PID] = l.PPID
+	}
+	ollamas := map[int]string{}
+	for u, f := range byURL {
+		if f.Runtime == ollama.Runtime && f.PID != 0 {
+			ollamas[f.PID] = u
+		}
+	}
+	isChild := func(f Found) (string, bool) {
+		u, ok := ollamas[parent[f.PID]]
+		return u, ok && f.PID != 0
+	}
+
+	for _, f := range byURL {
+		if ou, ok := isChild(f); ok && f.Runtime == llamacpp.Runtime {
+			o := byURL[ou]
+			o.Runners = append(o.Runners, f.URL)
+			byURL[ou] = o
+		}
+	}
+	out := make([]Found, 0, len(byURL))
+	for _, f := range byURL {
+		if _, ok := isChild(f); ok {
+			continue
+		}
+		sort.Strings(f.Runners)
+		out = append(out, f)
+	}
 	return out
 }
 
@@ -128,33 +170,23 @@ func foundOnPort(byURL map[string]Found, port int) (Found, bool) {
 	return Found{}, false
 }
 
+// Identify returns the runtime serving baseURL, or "" if it's none ctxtop
+// knows.
+func (d *Discoverer) Identify(ctx context.Context, baseURL string) string {
+	return d.probe(ctx, baseURL)
+}
+
 func (d *Discoverer) probe(ctx context.Context, baseURL string) string {
 	if llamacpp.Probe(ctx, d.Client, baseURL) {
 		return llamacpp.Runtime
 	}
-	if probeOllama(ctx, d.Client, baseURL) {
-		return Ollama
+	if ollama.Probe(ctx, d.Client, baseURL) {
+		return ollama.Runtime
+	}
+	if lmstudio.Probe(ctx, d.Client, baseURL) {
+		return lmstudio.Runtime
 	}
 	return ""
-}
-
-func probeOllama(ctx context.Context, client *http.Client, baseURL string) bool {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/version", nil)
-	if err != nil {
-		return false
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return false
-	}
-	var v struct {
-		Version string `json:"version"`
-	}
-	return json.NewDecoder(resp.Body).Decode(&v) == nil && v.Version != ""
 }
 
 // url builds a base URL to reach a socket bound to host. A wildcard bind is
@@ -175,8 +207,9 @@ func lsofListeners(ctx context.Context) ([]Listener, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	// +c 0: full command names. -F pcn: machine-readable pid, command, name.
-	out, err := exec.CommandContext(ctx, path, "-nP", "+c", "0", "-iTCP", "-sTCP:LISTEN", "-Fpcn").Output()
+	// +c 0: full command names. -F pRcn: machine-readable pid, parent pid,
+	// command and name.
+	out, err := exec.CommandContext(ctx, path, "-nP", "+c", "0", "-iTCP", "-sTCP:LISTEN", "-FpRcn").Output()
 	if err != nil && len(out) == 0 {
 		// lsof exits 1 when nothing matches.
 		return nil, fmt.Errorf("lsof: %w", err)
@@ -184,13 +217,14 @@ func lsofListeners(ctx context.Context) ([]Listener, error) {
 	return ParseLsof(out), nil
 }
 
-// ParseLsof reads `lsof -F pcn` output. Each process starts with a p line,
-// then a c line, then one n line per socket ("*:8080", "127.0.0.1:8080",
+// ParseLsof reads `lsof -F pRcn` output. Each process starts with a p line,
+// then R (parent pid) and c lines, then one n line per socket ("*:8080", "127.0.0.1:8080",
 // "[::1]:8080"). Sockets listed for both IPv4 and IPv6 are merged.
 func ParseLsof(out []byte) []Listener {
 	var (
 		res  []Listener
 		pid  int
+		ppid int
 		cmd  string
 		seen = map[string]bool{}
 	)
@@ -204,7 +238,9 @@ func ParseLsof(out []byte) []Listener {
 		switch line[0] {
 		case 'p':
 			pid, _ = strconv.Atoi(val)
-			cmd = ""
+			ppid, cmd = 0, ""
+		case 'R':
+			ppid, _ = strconv.Atoi(val)
 		case 'c':
 			cmd = val
 		case 'n':
@@ -223,7 +259,7 @@ func ParseLsof(out []byte) []Listener {
 				continue
 			}
 			seen[key] = true
-			res = append(res, Listener{PID: pid, Command: cmd, Host: host, Port: port})
+			res = append(res, Listener{PID: pid, PPID: ppid, Command: cmd, Host: host, Port: port})
 		}
 	}
 	return res

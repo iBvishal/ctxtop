@@ -40,15 +40,46 @@ type Server struct {
 	// other fields still say what was found.
 	Error  string  `json:"error,omitempty"`
 	Models []Model `json:"models,omitempty"`
+	// Requests are recently finished requests, newest last, for runtimes
+	// that report them.
+	Requests []Request `json:"requests,omitempty"`
 }
 
 // Model is one loaded model and, where the runtime exposes them, its slots.
+// Pointer fields are nil when the runtime doesn't report them.
 type Model struct {
 	Name        string `json:"name"`
+	Quant       string `json:"quant,omitempty"`
 	ContextSize int    `json:"context_size,omitempty"`
+	// Mem is the model's memory in bytes; MemGPU is the part in GPU
+	// memory, so Mem - MemGPU spilled to CPU RAM.
+	Mem    uint64  `json:"mem,omitempty"`
+	MemGPU *uint64 `json:"mem_gpu,omitempty"`
+	// Status is the runtime's own word for what the model is doing, such
+	// as "idle" or "generating".
+	Status   string `json:"status,omitempty"`
+	Queued   *int   `json:"queued,omitempty"`
+	Parallel int    `json:"parallel,omitempty"`
+	// UnloadsAt is when the runtime will unload an idle model.
+	UnloadsAt *time.Time `json:"unloads_at,omitempty"`
 	// MetricsEnabled is nil when the runtime has no such switch.
 	MetricsEnabled *bool  `json:"metrics_enabled,omitempty"`
 	Slots          []Slot `json:"slots,omitempty"`
+}
+
+// Request is one finished request. Fields the runtime doesn't report are
+// zero.
+type Request struct {
+	Time         time.Time `json:"time"`
+	Model        string    `json:"model,omitempty"`
+	Path         string    `json:"path,omitempty"`
+	Status       int       `json:"status,omitempty"`
+	Latency      float64   `json:"latency,omitempty"`
+	PromptTokens int       `json:"prompt_tokens,omitempty"`
+	OutputTokens int       `json:"output_tokens,omitempty"`
+	GenTPS       float64   `json:"gen_tps,omitempty"`
+	TTFT         float64   `json:"ttft,omitempty"`
+	StopReason   string    `json:"stop_reason,omitempty"`
 }
 
 // Slot is one request lane. Rates are measured between two polls and are

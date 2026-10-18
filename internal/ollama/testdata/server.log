@@ -1,0 +1,7 @@
+time=2026-10-18T12:01:02.000+05:30 level=INFO source=server.go:1000 msg="llama runner started in 2.10 seconds"
+[GIN] 2026/10/18 - 12:01:05 | 200 |      45.1µs |       127.0.0.1 | GET      "/api/version"
+[GIN] 2026/10/18 - 12:01:06 | 200 |   12.483s |       127.0.0.1 | POST     "/api/chat"
+[GIN] 2026/10/18 - 12:03:58 | 200 |  1.502312s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/10/18 - 12:03:59 | 200 |     312.4µs |       127.0.0.1 | GET      "/api/ps"
+[GIN] 2026/10/18 - 12:04:10 | 500 |   87.25ms |       127.0.0.1 | POST     "/api/generate"
+[GIN] 2026/10/18 - 12:04:12 | 200 |   20.1ms |       127.0.0.1 | POST     "/api/pull"

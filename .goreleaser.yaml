@@ -1,0 +1,51 @@
+version: 2
+project_name: ctxtop
+
+builds:
+  # macOS reads GPU use and power through IOKit and IOReport, so it needs
+  # cgo and a macOS runner. Go passes the right -arch to clang for both.
+  - id: darwin
+    goos: [darwin]
+    goarch: [arm64, amd64]
+    env: [CGO_ENABLED=1]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+  - id: linux
+    goos: [linux]
+    goarch: [amd64, arm64]
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files: [README.md, LICENSE]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge pull request"
+
+homebrew_casks:
+  - name: ctxtop
+    repository:
+      owner: iBvishal
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/iBvishal/ctxtop
+    description: "top for local LLMs: speed, memory and context fill for every model, and what to change"
+    license: MIT
+    binaries: [ctxtop]
+    hooks:
+      post:
+        # The binary isn't signed or notarised, and Homebrew quarantines
+        # cask downloads, so Gatekeeper would refuse to run it.
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/ctxtop"]
+          end

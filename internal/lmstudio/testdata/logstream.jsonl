@@ -1,0 +1,5 @@
+{"timestamp":1792300000000,"data":{"type":"llm.prediction.output","output":"DEMO OUTPUT TEXT","stats":{"stopReason":"eosFound","tokensPerSecond":44.2,"numGpuLayers":-1,"timeToFirstTokenSec":0.31,"totalTimeSec":1.24,"promptTokensCount":880,"predictedTokensCount":41,"totalTokensCount":921},"modelIdentifier":"qwen3-4b"}}
+{"timestamp":1792300001000,"data":{"type":"server.log","content":"[LM STUDIO SERVER] Running chat completion","level":"info"}}
+{"timestamp":1792300002000,"data":{"type":"llm.prediction.output","output":"no stats here","modelIdentifier":"qwen3-4b"}}
+not json at all
+{"timestamp":1792300003000,"data":{"type":"llm.prediction.output","output":"DEMO OUTPUT TEXT","stats":{"stopReason":"maxPredictedTokensReached","tokensPerSecond":39.8,"timeToFirstTokenSec":0.12,"totalTimeSec":6.6,"promptTokensCount":12,"predictedTokensCount":256},"modelIdentifier":"qwen3-4b"}}

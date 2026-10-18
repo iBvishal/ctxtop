@@ -16,6 +16,8 @@ import (
 	"github.com/iBvishal/ctxtop/internal/discover"
 	"github.com/iBvishal/ctxtop/internal/hw"
 	"github.com/iBvishal/ctxtop/internal/llamacpp"
+	"github.com/iBvishal/ctxtop/internal/lmstudio"
+	"github.com/iBvishal/ctxtop/internal/ollama"
 	"github.com/iBvishal/ctxtop/internal/snapshot"
 )
 
@@ -34,7 +36,7 @@ func main() {
 		showVer = flag.Bool("version", false, "print the version and exit")
 		urls    urlList
 	)
-	flag.Var(&urls, "url", "read this llama-server instead of discovering servers (repeatable)")
+	flag.Var(&urls, "url", "read the server at this URL instead of discovering servers (repeatable)")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: ctxtop [flags]\n\n"+
 			"Finds local LLM servers and shows speed, memory and context fill.\n\n")
@@ -65,40 +67,66 @@ func main() {
 	}
 }
 
+// collector is one runtime's reader. Rates come from the change between
+// two polls, so each collector keeps the previous poll.
+type collector interface {
+	Poll(ctx context.Context) (snapshot.Server, error)
+}
+
+func newCollector(f discover.Found) collector {
+	switch f.Runtime {
+	case llamacpp.Runtime:
+		return llamacpp.NewPoller(f.URL)
+	case ollama.Runtime:
+		p := ollama.NewPoller(f.URL)
+		p.Runners = f.Runners
+		return p
+	case lmstudio.Runtime:
+		return lmstudio.NewPoller(f.URL)
+	}
+	return nil
+}
+
 func collect(ctx context.Context, urls []string, sample time.Duration) snapshot.Snapshot {
 	var found []discover.Found
 	if len(urls) > 0 {
+		d := discover.New()
 		for _, u := range urls {
-			found = append(found, discover.Found{Runtime: llamacpp.Runtime, URL: strings.TrimRight(u, "/")})
+			u = strings.TrimRight(u, "/")
+			found = append(found, discover.Found{Runtime: d.Identify(ctx, u), URL: u})
 		}
 	} else {
 		found = discover.New().Find(ctx)
 	}
 
 	servers := make([]snapshot.Server, len(found))
-	pollers := map[int]*llamacpp.Poller{}
+	collectors := map[int]collector{}
 	for i, f := range found {
 		servers[i] = snapshot.Server{Runtime: f.Runtime, URL: f.URL, PID: f.PID, Process: f.Process}
-		if f.Runtime != llamacpp.Runtime {
-			servers[i].Error = "found, but ctxtop can't read " + f.Runtime + " yet"
+		c := newCollector(f)
+		if c == nil {
+			servers[i].Runtime = "unknown"
+			servers[i].Error = "not a llama-server, Ollama or LM Studio"
 			continue
 		}
-		p := llamacpp.NewPoller(f.URL)
-		if _, err := p.Poll(ctx); err != nil {
+		if cl, ok := c.(io.Closer); ok {
+			defer cl.Close()
+		}
+		if _, err := c.Poll(ctx); err != nil {
 			servers[i].Error = err.Error()
 			continue
 		}
-		pollers[i] = p
+		collectors[i] = c
 	}
 
-	if len(pollers) > 0 {
+	if len(collectors) > 0 {
 		select {
 		case <-time.After(sample):
 		case <-ctx.Done():
 		}
 	}
-	for i, p := range pollers {
-		s, err := p.Poll(ctx)
+	for i, c := range collectors {
+		s, err := c.Poll(ctx)
 		if err != nil {
 			servers[i].Error = err.Error()
 			continue
@@ -127,7 +155,7 @@ func printText(w io.Writer, s snapshot.Snapshot) error {
 	fmt.Fprintln(w)
 
 	if len(s.Servers) == 0 {
-		_, err := fmt.Fprintln(w, "\nNo LLM servers found. ctxtop looks for llama-server and Ollama on this machine.")
+		_, err := fmt.Fprintln(w, "\nNo LLM servers found. ctxtop looks for llama-server, Ollama and LM Studio on this machine.")
 		return err
 	}
 
@@ -141,7 +169,7 @@ func printText(w io.Writer, s snapshot.Snapshot) error {
 			fmt.Fprintf(w, "  ! %s\n", srv.Error)
 		}
 		for _, m := range srv.Models {
-			fmt.Fprintf(w, "  %s  ctx %s\n", m.Name, count(m.ContextSize))
+			fmt.Fprintf(w, "  %s\n", modelLine(m, s.Time))
 			if len(m.Slots) == 0 {
 				continue
 			}
@@ -159,8 +187,81 @@ func printText(w io.Writer, s snapshot.Snapshot) error {
 				return err
 			}
 		}
+		if err := printRequests(w, srv.Requests); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// modelLine is one model's summary: name, quant, context size, memory and
+// what the runtime says it's doing.
+func modelLine(m snapshot.Model, now time.Time) string {
+	parts := []string{m.Name}
+	if m.Quant != "" {
+		parts = append(parts, m.Quant)
+	}
+	if m.ContextSize > 0 {
+		parts = append(parts, "ctx "+count(m.ContextSize))
+	}
+	switch {
+	case m.MemGPU != nil && *m.MemGPU < m.Mem:
+		parts = append(parts, fmt.Sprintf("mem %s (%s GPU, %s CPU)", gb(m.Mem), gb(*m.MemGPU), gb(m.Mem-*m.MemGPU)))
+	case m.Mem > 0:
+		parts = append(parts, "mem "+gb(m.Mem))
+	}
+	if m.Status != "" {
+		parts = append(parts, m.Status)
+	}
+	if m.Queued != nil && *m.Queued > 0 {
+		q := fmt.Sprintf("%d queued", *m.Queued)
+		if m.Parallel > 0 {
+			q += fmt.Sprintf(" (%d parallel)", m.Parallel)
+		}
+		parts = append(parts, q)
+	}
+	if m.UnloadsAt != nil {
+		if d := m.UnloadsAt.Sub(now).Round(time.Second); d > 0 {
+			parts = append(parts, "unloads in "+d.String())
+		}
+	}
+	return strings.Join(parts, "  ")
+}
+
+// printRequests prints the last few finished requests, newest last.
+func printRequests(w io.Writer, reqs []snapshot.Request) error {
+	if len(reqs) == 0 {
+		return nil
+	}
+	if len(reqs) > 5 {
+		reqs = reqs[len(reqs)-5:]
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "    recent requests")
+	for _, r := range reqs {
+		what := r.Model
+		if what == "" {
+			what = r.Path
+		}
+		line := fmt.Sprintf("    %s\t%s", r.Time.Local().Format("15:04:05"), what)
+		if r.Status != 0 {
+			line += fmt.Sprintf("\t%d", r.Status)
+		}
+		if r.PromptTokens > 0 || r.OutputTokens > 0 {
+			line += fmt.Sprintf("\tin %s  out %s", count(r.PromptTokens), count(r.OutputTokens))
+		}
+		if r.GenTPS > 0 {
+			line += fmt.Sprintf("\t%.1f t/s", r.GenTPS)
+		}
+		if r.TTFT > 0 {
+			line += fmt.Sprintf("\tttft %.2fs", r.TTFT)
+		}
+		if r.Latency > 0 {
+			line += fmt.Sprintf("\t%.2fs", r.Latency)
+		}
+		fmt.Fprintln(tw, line)
+	}
+	return tw.Flush()
 }
 
 // rate formats tokens per second, or a dash when nothing was measured.

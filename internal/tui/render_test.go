@@ -22,6 +22,11 @@ func demo() snapshot.Snapshot {
 			MemTotal: 16 << 30, MemUsed: 12 << 30, SwapTotal: 2 << 30, SwapUsed: 1 << 30,
 			Pressure: "warn", GPUUtil: &util, GPUMem: 3 << 30, Power: &snapshot.Power{CPU: 4.2, GPU: 14},
 		},
+		Advice: []snapshot.Advice{{
+			Rule: "context-full", Level: "warn", Subject: "gemma-3-4b-it-Q8_0.gguf, slot 0",
+			Message: "Context is 89% (7,263 of 8,192 tokens) full. When it fills, generation stops and the reply is cut off.",
+			Fix:     "Restart llama-server with a larger -c. It's split across 2 slots, so each gets 8,192 of -c 16,384.",
+		}},
 		Servers: []snapshot.Server{
 			{Runtime: "llama.cpp", URL: "http://127.0.0.1:8080", PID: 412, Build: "b11669",
 				Models: []snapshot.Model{{Name: "gemma-3-4b-it-Q8_0.gguf", ContextSize: 8192, Slots: []snapshot.Slot{
@@ -53,6 +58,9 @@ func TestRenderShowsEverything(t *testing.T) {
 		"gen 51.0 t/s",
 		"qwen3:14b  Q4_K_M  mem 10.0 GB (7.0 GB GPU, 3.0 GB CPU)",
 		"! lms ps: exit status 1",
+		"ADVICE",
+		"▲ gemma-3-4b-it-Q8_0.gguf, slot 0  Context is 89%",
+		"→ Restart llama-server with a larger -c.",
 		"RECENT REQUESTS",
 		"q quit  r rescan  every 1s",
 	} {
@@ -107,5 +115,32 @@ func TestHostFitsEightyColumns(t *testing.T) {
 		if w := lipgloss.Width(l); w > 80 {
 			t.Errorf("host line %d is %d wide: %q", i, w, ansi.Strip(l))
 		}
+	}
+}
+
+func TestAdviceWrapsInsteadOfCutting(t *testing.T) {
+	lines := adviceLines(demo().Advice, 60)
+	joined := ansi.Strip(strings.Join(lines, " "))
+	for _, word := range []string{"cut", "off.", "16,384."} {
+		if !strings.Contains(joined, word) {
+			t.Errorf("lost %q when wrapping: %q", word, joined)
+		}
+	}
+	for i, l := range lines {
+		if w := lipgloss.Width(l); w > 60 {
+			t.Errorf("line %d is %d wide: %q", i, w, ansi.Strip(l))
+		}
+	}
+}
+
+func TestWrap(t *testing.T) {
+	got := wrap("one two three four five six seven eight nine ten eleven twelve", 20)
+	for _, l := range got {
+		if len(l) > 20 {
+			t.Errorf("line too long: %q", l)
+		}
+	}
+	if strings.Join(got, " ") != "one two three four five six seven eight nine ten eleven twelve" {
+		t.Errorf("words changed: %q", got)
 	}
 }

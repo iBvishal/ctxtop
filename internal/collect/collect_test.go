@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iBvishal/ctxtop/internal/advice"
 	"github.com/iBvishal/ctxtop/internal/discover"
 	"github.com/iBvishal/ctxtop/internal/llamacpp"
 	"github.com/iBvishal/ctxtop/internal/snapshot"
@@ -103,5 +104,15 @@ func TestUnknownAndUnreachable(t *testing.T) {
 	}
 	if got.Host.OS != "test" || got.Version != snapshot.Version {
 		t.Errorf("snapshot = %+v", got)
+	}
+}
+
+func TestSnapshotCarriesAdvice(t *testing.T) {
+	c, _ := newTest(func() []discover.Found { return nil })
+	c.ReadHost = func() snapshot.Host { return snapshot.Host{Pressure: "critical", MemTotal: 16 << 30} }
+	c.Advice = advice.New()
+	got := c.Snapshot(context.Background())
+	if len(got.Advice) != 1 || got.Advice[0].Rule != "memory-pressure" {
+		t.Errorf("advice = %+v", got.Advice)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/iBvishal/ctxtop/internal/advice"
 	"github.com/iBvishal/ctxtop/internal/format"
 	"github.com/iBvishal/ctxtop/internal/snapshot"
 )
@@ -47,7 +48,70 @@ func Render(s snapshot.Snapshot, have bool, width, height int, interval time.Dur
 		body = append(body, serverLines(srv, s.Time)...)
 		body = append(body, "")
 	}
+	if len(s.Advice) > 0 {
+		body = append(body, adviceLines(s.Advice, width)...)
+		body = append(body, "")
+	}
 	return fit(body, requestLines(s), footer, width, height)
+}
+
+// adviceLines shows each piece of advice as its subject and message, then
+// the fix, both wrapped to the terminal so nothing is cut.
+func adviceLines(list []snapshot.Advice, width int) []string {
+	if width <= 0 {
+		width = 100
+	}
+	out := []string{label.Render("ADVICE")}
+	for _, a := range list {
+		style := faint
+		switch a.Level {
+		case advice.Critical:
+			style = red
+		case advice.Warn:
+			style = yellow
+		}
+		// The message starts after the subject and continues four spaces in,
+		// so a long model name doesn't squeeze it into a narrow column.
+		head := style.Render(advice.Marker(a.Level)) + " " + bold.Render(a.Subject) + "  "
+		first := wrap(a.Message, width-lipgloss.Width(head))
+		out = append(out, head+first[0])
+		rest := strings.TrimSpace(strings.TrimPrefix(a.Message, first[0]))
+		if rest != "" {
+			for _, l := range wrap(rest, width-4) {
+				out = append(out, "    "+l)
+			}
+		}
+		for i, l := range wrap(a.Fix, width-6) {
+			prefix := "      "
+			if i == 0 {
+				prefix = "    → "
+			}
+			out = append(out, prefix+faint.Render(l))
+		}
+	}
+	return out
+}
+
+// wrap breaks text into lines of at most width cells, at spaces.
+func wrap(text string, width int) []string {
+	width = max(width, 20)
+	var lines []string
+	line := ""
+	for _, word := range strings.Fields(text) {
+		switch {
+		case line == "":
+			line = word
+		case lipgloss.Width(line)+1+lipgloss.Width(word) <= width:
+			line += " " + word
+		default:
+			lines = append(lines, line)
+			line = word
+		}
+	}
+	if line != "" || len(lines) == 0 {
+		lines = append(lines, line)
+	}
+	return lines
 }
 
 // fit lays out body, then as many recent requests as fit, then the footer

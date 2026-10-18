@@ -1,0 +1,11 @@
+{
+  "version": 1, "time": "2026-10-18T12:00:00Z",
+  "host": {"os": "darwin", "arch": "arm64", "mem_total": 17179869184, "mem_used": 9663676416, "swap_total": 2147483648, "swap_used": 0, "pressure": "normal"},
+  "servers": [
+    {"runtime": "llama.cpp", "url": "http://127.0.0.1:8080", "models": [{"name": "gemma-3-4b-it-Q8_0.gguf", "context_size": 8192,
+      "slots": [{"id": 0, "busy": true, "context_size": 8192, "context_used": 2400, "context_fill": 0.293, "generated": 120, "cached": 0, "gen_tps": 51}]}]},
+    {"runtime": "ollama", "url": "http://127.0.0.1:11434", "models": [{"name": "qwen3:8b", "quant": "Q4_K_M", "context_size": 8192, "mem": 5476083712, "mem_gpu": 5476083712, "unloads_at": "2026-10-18T12:04:00Z"}],
+      "requests": [{"time": "2026-10-18T11:59:40Z", "path": "/api/chat", "status": 200, "latency": 2.1}]},
+    {"runtime": "lmstudio", "url": "http://127.0.0.1:1234", "models": [{"name": "qwen3-4b", "context_size": 32768, "mem": 2640000000, "status": "generating", "queued": 0, "parallel": 1}]}
+  ]
+}

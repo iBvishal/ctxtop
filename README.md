@@ -2,7 +2,7 @@
 
 `top` for local LLMs. ctxtop finds the inference servers running on your machine and shows, for each model, how fast it's going, how full its context is and how much memory it's using. Then it tells you what to change.
 
-> **Status: early.** ctxtop reads llama.cpp's `llama-server`, Ollama and LM Studio in a live terminal view. The advice pane is on the way.
+> **Status: early.** ctxtop reads llama.cpp's `llama-server`, Ollama and LM Studio in a live terminal view and tells you what to change. Not released yet.
 
 ## Install
 
@@ -18,6 +18,7 @@ Needs Go 1.26 or later. A Homebrew tap comes with v0.1.
 ctxtop                              # live view; q quits, r rescans for servers
 ctxtop --once                       # print one snapshot and exit
 ctxtop --json                       # one snapshot as JSON, for scripts and agents
+ctxtop doctor                       # check once, print only the advice
 ctxtop --url http://127.0.0.1:8081  # read one server, skip discovery
 ```
 
@@ -35,6 +36,15 @@ ollama  127.0.0.1:11434  pid 977  0.40.6
   qwen3:14b  Q4_K_M  ctx 8,192  mem 9.6 GB (7.4 GB GPU, 2.2 GB CPU)  unloads in 4m30s
     slot 0  busy  ██░░░░░░░░░░  18%  1,485 / 8,192   gen 11.2 t/s
 
+ADVICE
+▲ gemma-3-4b-it-Q8_0.gguf, slot 0  Context is 89% (7,263 of 8,192 tokens) full.
+    When it fills, generation stops and the reply is cut off.
+    → Restart llama-server with a larger -c. It's split across 2 slots, so
+      each gets 8,192 of -c 16,384.
+▲ qwen3:14b  2.2 GB of 9.6 GB doesn't fit in GPU memory and runs from CPU RAM,
+    so generation is much slower.
+    → Use a smaller quant or a smaller model.
+
 RECENT REQUESTS
   12:04:31  ollama    /api/chat                200  12.48s
 
@@ -42,6 +52,23 @@ q quit  r rescan  every 1s
 ```
 
 The live view refreshes every second (`--interval`) and looks for new servers every 5 seconds. When output isn't a terminal, ctxtop prints one snapshot instead. Speed in a snapshot is measured between two polls one second apart (`--sample`).
+
+## Advice
+
+Each rule names the problem, the evidence and one fix. Thresholds are starting points.
+
+| Rule | Fires when | Level |
+| --- | --- | --- |
+| `gpu-spill` | Part of a model runs from CPU RAM (Ollama reports the split) | warn; critical when half or more spilled |
+| `context-full` | A slot's context is 85% full or more, or the last request filled it | warn; critical at 98% |
+| `queued` | Requests are waiting for a free slot (LM Studio reports its queue) | warn |
+| `swap-growing` | Swap grew 100 MB or more, at 50 MB/min or faster, over at least 2 minutes, while models are loaded | warn |
+| `memory-pressure` | macOS memory pressure is warn or critical | as reported |
+| `unloading-soon` | An Ollama model unloads within a minute while requests are still coming | info |
+
+When memory is short but the loaded models are small, ctxtop says other apps are the cause rather than pointing at a model.
+
+`ctxtop doctor` exits 0 when healthy (info only), 1 on warnings and 2 on anything critical, so it works in scripts. A single check can't see swap trends; the live view can.
 
 ## What it reads
 

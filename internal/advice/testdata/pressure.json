@@ -1,0 +1,8 @@
+{
+  "version": 1, "time": "2026-10-18T12:00:00Z",
+  "host": {"os": "darwin", "arch": "arm64", "mem_total": 17179869184, "mem_used": 16800000000, "pressure": "critical"},
+  "servers": [
+    {"runtime": "ollama", "url": "http://127.0.0.1:11434", "models": [{"name": "qwen3:14b", "context_size": 8192, "mem": 10307921510, "mem_gpu": 10307921510}]},
+    {"runtime": "lmstudio", "url": "http://127.0.0.1:1234", "models": [{"name": "qwen3-4b", "mem": 2640000000, "status": "idle", "queued": 0}]}
+  ]
+}

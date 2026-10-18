@@ -1,0 +1,7 @@
+{
+  "version": 1, "time": "2026-10-18T12:00:00Z",
+  "host": {"os": "darwin", "arch": "arm64", "mem_total": 17179869184, "mem_used": 9663676416, "pressure": "normal"},
+  "servers": [
+    {"runtime": "lmstudio", "url": "http://127.0.0.1:1234", "models": [{"name": "qwen3-4b", "context_size": 32768, "mem": 2640000000, "status": "generating", "queued": 2, "parallel": 1}]}
+  ]
+}

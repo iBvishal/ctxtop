@@ -72,3 +72,36 @@ func TestPrintTextNoServers(t *testing.T) {
 		t.Errorf("output = %q", b.String())
 	}
 }
+
+func TestPrintDoctor(t *testing.T) {
+	cases := []struct {
+		advice []snapshot.Advice
+		code   int
+		want   string
+	}{
+		{nil, 0, "No problems found."},
+		{[]snapshot.Advice{{Rule: "unloading-soon", Level: "info", Subject: "q", Message: "m", Fix: "f"}}, 0, "● q: m"},
+		{[]snapshot.Advice{{Rule: "queued", Level: "warn", Subject: "q", Message: "m", Fix: "f"}}, 1, "▲ q: m"},
+		{[]snapshot.Advice{
+			{Rule: "queued", Level: "warn", Subject: "q", Message: "m", Fix: "f"},
+			{Rule: "memory-pressure", Level: "critical", Subject: "memory", Message: "m", Fix: "f"},
+		}, 2, "✖ memory: m"},
+	}
+	for _, c := range cases {
+		var b bytes.Buffer
+		s := snapshot.Snapshot{
+			Servers: []snapshot.Server{{Runtime: "ollama", URL: "http://127.0.0.1:11434"}},
+			Advice:  c.advice,
+		}
+		code, err := printDoctor(&b, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if code != c.code || !strings.Contains(b.String(), c.want) {
+			t.Errorf("code %d, output %q; want %d and %q", code, b.String(), c.code, c.want)
+		}
+		if !strings.Contains(b.String(), "Checked ollama (127.0.0.1:11434).") {
+			t.Errorf("output %q doesn't say what was checked", b.String())
+		}
+	}
+}

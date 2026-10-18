@@ -1,0 +1,13 @@
+{
+  "default_generation_settings": {"params": {"n_predict": -1, "temperature": 0.8}, "n_ctx": 8192},
+  "total_slots": 2,
+  "model_alias": "/models/gemma-3-4b-it-Q8_0.gguf",
+  "model_ftype": "Q8_0",
+  "model_path": "/models/gemma-3-4b-it-Q8_0.gguf",
+  "modalities": {"vision": false, "video": false, "audio": false},
+  "endpoint_slots": true,
+  "endpoint_props": false,
+  "endpoint_metrics": false,
+  "build_info": "b7012-acme123",
+  "is_sleeping": false
+}

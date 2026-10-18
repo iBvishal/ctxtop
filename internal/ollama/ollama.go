@@ -67,6 +67,15 @@ type Poller struct {
 	ModelsDir string
 
 	runners map[string]*llamacpp.Poller
+	blobs   map[string]string // model name -> weights blob digest
+	build   string
+	// The access log is read incrementally. logOff is the next unread byte;
+	// logSkip means it sits mid-line, so the rest of that line is skipped.
+	// logReqs holds parsed requests still inside Window.
+	logPath string
+	logOff  int64
+	logSkip bool
+	logReqs []snapshot.Request
 }
 
 func NewPoller(baseURL string) *Poller {
@@ -107,13 +116,16 @@ func DefaultLogPaths() []string {
 func (p *Poller) Poll(ctx context.Context) (snapshot.Server, error) {
 	srv := snapshot.Server{Runtime: Runtime, URL: p.BaseURL}
 
-	var v struct {
-		Version string `json:"version"`
+	if p.build == "" {
+		var v struct {
+			Version string `json:"version"`
+		}
+		if err := get(ctx, p.Client, p.BaseURL+"/api/version", &v); err != nil {
+			return srv, err
+		}
+		p.build = v.Version
 	}
-	if err := get(ctx, p.Client, p.BaseURL+"/api/version", &v); err != nil {
-		return srv, err
-	}
-	srv.Build = v.Version
+	srv.Build = p.build
 
 	var ps psResponse
 	if err := get(ctx, p.Client, p.BaseURL+"/api/ps", &ps); err != nil {
@@ -145,9 +157,21 @@ func (p *Poller) attachRunners(ctx context.Context, models []snapshot.Model) {
 	if p.runners == nil {
 		p.runners = map[string]*llamacpp.Poller{}
 	}
+	if p.blobs == nil {
+		p.blobs = map[string]string{}
+	}
 	byBlob := map[string]int{}
 	for i, m := range models {
-		if blob := ModelBlob(p.ModelsDir, m.Name); blob != "" {
+		blob, ok := p.blobs[m.Name]
+		if !ok {
+			// A manifest only changes when the model is pulled again,
+			// which also reloads it, so one read per model is enough.
+			blob = ModelBlob(p.ModelsDir, m.Name)
+			if blob != "" {
+				p.blobs[m.Name] = blob
+			}
+		}
+		if blob != "" {
 			byBlob[blob] = i
 		}
 	}
@@ -235,40 +259,84 @@ func manifestPath(dir, name string) string {
 	return filepath.Join(dir, "manifests", host, ns, model, tag)
 }
 
+// maxLogRead bounds one read of the access log: the first read, or one
+// after a long pause, starts at most this far from the end.
+const maxLogRead = 256 << 10
+
+// recentRequests parses what the access log gained since the last poll and
+// returns the requests inside Window.
 func (p *Poller) recentRequests() []snapshot.Request {
-	for _, path := range p.LogPaths {
-		f, err := os.Open(path)
-		if err != nil {
-			continue
+	if p.logPath == "" {
+		for _, path := range p.LogPaths {
+			if st, err := os.Stat(path); err == nil && !st.IsDir() {
+				p.logPath, p.logOff, p.logSkip = path, 0, false
+				break
+			}
 		}
-		defer f.Close()
-		tail, err := readTail(f, 256<<10)
-		if err != nil {
+		if p.logPath == "" {
 			return nil
 		}
-		return ParseAccessLog(tail, p.Now().Add(-p.Window), time.Local)
 	}
-	return nil
-}
-
-// readTail returns up to n bytes from the end of f, starting at a line
-// boundary.
-func readTail(f *os.File, n int64) ([]byte, error) {
-	st, err := f.Stat()
-	if err != nil {
-		return nil, err
+	since := p.Now().Add(-p.Window).Truncate(time.Second)
+	if b := p.readLog(); len(b) > 0 {
+		p.logReqs = append(p.logReqs, ParseAccessLog(b, since, time.Local)...)
 	}
-	off := max(st.Size()-n, 0)
-	b := make([]byte, st.Size()-off)
-	if _, err := f.ReadAt(b, off); err != nil && err != io.EOF {
-		return nil, err
-	}
-	if off > 0 {
-		if i := bytes.IndexByte(b, '\n'); i >= 0 {
-			b = b[i+1:]
+	keep := p.logReqs[:0]
+	for _, r := range p.logReqs {
+		if !r.Time.Before(since) {
+			keep = append(keep, r)
 		}
 	}
-	return b, nil
+	p.logReqs = keep
+	if len(keep) == 0 {
+		return nil
+	}
+	return append([]snapshot.Request(nil), keep...)
+}
+
+// readLog returns the complete lines added since the last read. A log that
+// shrank was rotated and is read from the start.
+func (p *Poller) readLog() []byte {
+	f, err := os.Open(p.logPath)
+	if err != nil {
+		p.logPath = ""
+		return nil
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return nil
+	}
+	size := st.Size()
+	if size < p.logOff {
+		p.logOff, p.logSkip = 0, false
+	}
+	if size-p.logOff > maxLogRead {
+		p.logOff, p.logSkip = size-maxLogRead, true
+	}
+	if size == p.logOff {
+		return nil
+	}
+	b := make([]byte, size-p.logOff)
+	if _, err := f.ReadAt(b, p.logOff); err != nil && err != io.EOF {
+		return nil
+	}
+	start := 0
+	if p.logSkip {
+		i := bytes.IndexByte(b, '\n')
+		if i < 0 {
+			return nil
+		}
+		start, p.logSkip = i+1, false
+	}
+	end := bytes.LastIndexByte(b, '\n')
+	if end < start {
+		// Only a partial line so far; read it once it's finished.
+		p.logOff += int64(start)
+		return nil
+	}
+	p.logOff += int64(end + 1)
+	return b[start : end+1]
 }
 
 // ginLine matches Gin's default access log line:

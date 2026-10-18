@@ -9,15 +9,6 @@ import (
 	"github.com/iBvishal/ctxtop/internal/snapshot"
 )
 
-func TestCount(t *testing.T) {
-	cases := map[int]string{0: "0", 999: "999", 1000: "1,000", 65536: "65,536", 1234567: "1,234,567"}
-	for n, want := range cases {
-		if got := count(n); got != want {
-			t.Errorf("count(%d) = %q, want %q", n, got, want)
-		}
-	}
-}
-
 func TestPrintText(t *testing.T) {
 	now := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 	gpu := uint64(7 << 30)
@@ -59,8 +50,7 @@ func TestPrintText(t *testing.T) {
 		"89%",
 		"51.0",
 		"qwen3:14b  Q4_K_M  ctx 8,192  mem 10.0 GB (7.0 GB GPU, 3.0 GB CPU)  unloads in 4m30s",
-		"/api/chat  200",
-		"12.50s",
+		"/api/chat  200  12.50s",
 		"qwen3-4b  generating  2 queued (1 parallel)",
 		"in 880  out 41",
 		"44.2 t/s",

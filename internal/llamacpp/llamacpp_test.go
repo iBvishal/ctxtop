@@ -179,3 +179,44 @@ func TestModelName(t *testing.T) {
 		}
 	}
 }
+
+func TestPropsAreCached(t *testing.T) {
+	propsReads := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/props" {
+			propsReads++
+			serveFile(t, w, "props.json", http.StatusOK)
+			return
+		}
+		serveFile(t, w, "slots_t0.json", http.StatusOK)
+	}))
+	defer srv.Close()
+
+	p := NewPoller(srv.URL)
+	p.Now = stepClock(3 * time.Second)
+	for range 4 {
+		if _, err := p.Poll(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Polls at 0, 3, 6 and 9 s with a 10 s refresh: one read.
+	if propsReads != 1 {
+		t.Errorf("/props read %d times, want 1", propsReads)
+	}
+	p.Poll(context.Background()) // 12 s
+	if propsReads != 2 {
+		t.Errorf("/props read %d times after 12 s, want 2", propsReads)
+	}
+}
+
+func TestServerGoneWithCachedProps(t *testing.T) {
+	srv := fakeServer(t, "slots_t0.json")
+	p := NewPoller(srv.URL)
+	if _, err := p.Poll(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	srv.Close()
+	if _, err := p.Poll(context.Background()); err == nil {
+		t.Fatal("want an error once the server is gone, even with /props cached")
+	}
+}

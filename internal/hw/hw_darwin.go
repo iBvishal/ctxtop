@@ -4,6 +4,11 @@ package hw
 #include <mach/mach.h>
 #include <sys/sysctl.h>
 
+static void ctx_chip(char *buf, size_t len) {
+	buf[0] = 0;
+	sysctlbyname("machdep.cpu.brand_string", buf, &len, NULL, 0);
+}
+
 typedef struct {
 	uint64_t total, app, wired, compressed, page_size;
 	uint64_t swap_total, swap_used;
@@ -48,6 +53,10 @@ import "C"
 import "github.com/iBvishal/ctxtop/internal/snapshot"
 
 func readMemory(h *snapshot.Host) {
+	var chip [128]C.char
+	C.ctx_chip(&chip[0], C.size_t(len(chip)))
+	h.Chip = C.GoString(&chip[0])
+
 	m := C.ctx_read_mem()
 	h.MemTotal = uint64(m.total)
 	if m.ok != 0 {

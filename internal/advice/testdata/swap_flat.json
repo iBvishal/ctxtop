@@ -1,0 +1,191 @@
+[
+ {
+  "version": 1,
+  "time": "2026-10-18T12:00:00Z",
+  "host": {
+   "os": "darwin",
+   "arch": "arm64",
+   "mem_total": 17179869184,
+   "mem_used": 15500000000,
+   "swap_total": 4294967296,
+   "swap_used": 1073741824,
+   "pressure": "normal"
+  },
+  "servers": [
+   {
+    "runtime": "ollama",
+    "url": "http://127.0.0.1:11434",
+    "models": [
+     {
+      "name": "qwen3:14b",
+      "context_size": 8192,
+      "mem": 10307921510,
+      "mem_gpu": 10307921510
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "version": 1,
+  "time": "2026-10-18T12:00:30Z",
+  "host": {
+   "os": "darwin",
+   "arch": "arm64",
+   "mem_total": 17179869184,
+   "mem_used": 15500000000,
+   "swap_total": 4294967296,
+   "swap_used": 1073741824,
+   "pressure": "normal"
+  },
+  "servers": [
+   {
+    "runtime": "ollama",
+    "url": "http://127.0.0.1:11434",
+    "models": [
+     {
+      "name": "qwen3:14b",
+      "context_size": 8192,
+      "mem": 10307921510,
+      "mem_gpu": 10307921510
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "version": 1,
+  "time": "2026-10-18T12:01:00Z",
+  "host": {
+   "os": "darwin",
+   "arch": "arm64",
+   "mem_total": 17179869184,
+   "mem_used": 15500000000,
+   "swap_total": 4294967296,
+   "swap_used": 1073741824,
+   "pressure": "normal"
+  },
+  "servers": [
+   {
+    "runtime": "ollama",
+    "url": "http://127.0.0.1:11434",
+    "models": [
+     {
+      "name": "qwen3:14b",
+      "context_size": 8192,
+      "mem": 10307921510,
+      "mem_gpu": 10307921510
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "version": 1,
+  "time": "2026-10-18T12:01:30Z",
+  "host": {
+   "os": "darwin",
+   "arch": "arm64",
+   "mem_total": 17179869184,
+   "mem_used": 15500000000,
+   "swap_total": 4294967296,
+   "swap_used": 1073741824,
+   "pressure": "normal"
+  },
+  "servers": [
+   {
+    "runtime": "ollama",
+    "url": "http://127.0.0.1:11434",
+    "models": [
+     {
+      "name": "qwen3:14b",
+      "context_size": 8192,
+      "mem": 10307921510,
+      "mem_gpu": 10307921510
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "version": 1,
+  "time": "2026-10-18T12:02:00Z",
+  "host": {
+   "os": "darwin",
+   "arch": "arm64",
+   "mem_total": 17179869184,
+   "mem_used": 15500000000,
+   "swap_total": 4294967296,
+   "swap_used": 1073741824,
+   "pressure": "normal"
+  },
+  "servers": [
+   {
+    "runtime": "ollama",
+    "url": "http://127.0.0.1:11434",
+    "models": [
+     {
+      "name": "qwen3:14b",
+      "context_size": 8192,
+      "mem": 10307921510,
+      "mem_gpu": 10307921510
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "version": 1,
+  "time": "2026-10-18T12:02:30Z",
+  "host": {
+   "os": "darwin",
+   "arch": "arm64",
+   "mem_total": 17179869184,
+   "mem_used": 15500000000,
+   "swap_total": 4294967296,
+   "swap_used": 1073741824,
+   "pressure": "normal"
+  },
+  "servers": [
+   {
+    "runtime": "ollama",
+    "url": "http://127.0.0.1:11434",
+    "models": [
+     {
+      "name": "qwen3:14b",
+      "context_size": 8192,
+      "mem": 10307921510,
+      "mem_gpu": 10307921510
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "version": 1,
+  "time": "2026-10-18T12:03:00Z",
+  "host": {
+   "os": "darwin",
+   "arch": "arm64",
+   "mem_total": 17179869184,
+   "mem_used": 15500000000,
+   "swap_total": 4294967296,
+   "swap_used": 1073741824,
+   "pressure": "normal"
+  },
+  "servers": [
+   {
+    "runtime": "ollama",
+    "url": "http://127.0.0.1:11434",
+    "models": [
+     {
+      "name": "qwen3:14b",
+      "context_size": 8192,
+      "mem": 10307921510,
+      "mem_gpu": 10307921510
+     }
+    ]
+   }
+  ]
+ }
+]

@@ -1,0 +1,8 @@
+{
+  "version": 1, "time": "2026-10-18T12:00:00Z",
+  "host": {"os": "darwin", "arch": "arm64", "mem_total": 17179869184, "mem_used": 9663676416, "pressure": "normal"},
+  "servers": [
+    {"runtime": "ollama", "url": "http://127.0.0.1:11434", "models": [{"name": "qwen3:8b", "context_size": 8192, "mem": 5476083712, "mem_gpu": 5476083712, "unloads_at": "2026-10-18T12:00:40Z"}],
+      "requests": [{"time": "2026-10-18T11:59:50Z", "path": "/api/chat", "status": 200, "latency": 3.0}]}
+  ]
+}

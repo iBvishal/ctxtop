@@ -1,0 +1,10 @@
+{
+  "version": 1, "time": "2026-10-18T12:00:00Z",
+  "host": {"os": "darwin", "arch": "arm64", "mem_total": 17179869184, "mem_used": 9663676416, "pressure": "normal"},
+  "servers": [
+    {"runtime": "llama.cpp", "url": "http://127.0.0.1:8080", "models": [{"name": "gemma-3-4b-it-Q8_0.gguf", "context_size": 4096, "slots": [
+      {"id": 0, "busy": true, "context_size": 4096, "context_used": 3768, "context_fill": 0.92, "generated": 300, "cached": 0, "gen_tps": 48},
+      {"id": 1, "busy": false, "context_size": 4096, "context_used": 4095, "context_fill": 0.99976, "generated": 900, "cached": 0}
+    ]}]}
+  ]
+}

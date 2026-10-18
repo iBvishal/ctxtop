@@ -15,6 +15,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/iBvishal/ctxtop/internal/advice"
 	"github.com/iBvishal/ctxtop/internal/collect"
 	"github.com/iBvishal/ctxtop/internal/format"
 	"github.com/iBvishal/ctxtop/internal/snapshot"
@@ -30,6 +31,12 @@ func (u *urlList) String() string     { return strings.Join(*u, ",") }
 func (u *urlList) Set(v string) error { *u = append(*u, v); return nil }
 
 func main() {
+	// "ctxtop doctor [flags]": check once, print advice, exit by severity.
+	doctor := len(os.Args) > 1 && os.Args[1] == "doctor"
+	if doctor {
+		os.Args = append(os.Args[:1], os.Args[2:]...)
+	}
+
 	var (
 		asJSON   = flag.Bool("json", false, "print one snapshot as JSON and exit")
 		once     = flag.Bool("once", false, "print one snapshot as text and exit")
@@ -40,9 +47,11 @@ func main() {
 	)
 	flag.Var(&urls, "url", "read the server at this URL instead of discovering servers (repeatable)")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: ctxtop [flags]\n\n"+
-			"Finds local LLM servers and shows speed, memory and context fill.\n"+
-			"Runs a live view in a terminal; prints one snapshot otherwise.\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: ctxtop [flags]\n       ctxtop doctor [flags]\n\n"+
+			"Finds local LLM servers and shows speed, memory and context fill, and\n"+
+			"what to change. Runs a live view in a terminal; prints one snapshot\n"+
+			"otherwise. doctor checks once, prints only the advice and exits 0 when\n"+
+			"healthy, 1 on warnings, 2 on anything critical.\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -54,6 +63,17 @@ func main() {
 
 	c := collect.New(urls)
 	defer c.Close()
+
+	if doctor {
+		snap := snapshotOnce(c, *sample)
+		code, err := printDoctor(os.Stdout, snap)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "ctxtop:", err)
+			os.Exit(3)
+		}
+		c.Close()
+		os.Exit(code)
+	}
 
 	var err error
 	if *asJSON || *once || !isTerminal(os.Stdout) {
@@ -151,7 +171,44 @@ func printText(w io.Writer, s snapshot.Snapshot) error {
 			return err
 		}
 	}
+	if len(s.Advice) > 0 {
+		fmt.Fprintln(w, "\nadvice")
+		for _, l := range advice.Lines(s.Advice) {
+			fmt.Fprintln(w, "  "+l)
+		}
+	}
 	return nil
+}
+
+// printDoctor prints what was found and the advice, and returns the exit
+// code: 0 healthy, 1 warnings, 2 critical. Info alone is healthy.
+func printDoctor(w io.Writer, s snapshot.Snapshot) (int, error) {
+	if len(s.Servers) == 0 {
+		fmt.Fprintln(w, "No LLM servers found. ctxtop looks for llama-server, Ollama and LM Studio on this machine.")
+	} else {
+		var found []string
+		for _, srv := range s.Servers {
+			found = append(found, srv.Runtime+" ("+strings.TrimPrefix(srv.URL, "http://")+")")
+		}
+		fmt.Fprintf(w, "Checked %s.\n", strings.Join(found, ", "))
+	}
+	if len(s.Advice) == 0 {
+		_, err := fmt.Fprintln(w, "No problems found.")
+		return 0, err
+	}
+	fmt.Fprintln(w)
+	for _, l := range advice.Lines(s.Advice) {
+		if _, err := fmt.Fprintln(w, l); err != nil {
+			return 0, err
+		}
+	}
+	switch advice.Worst(s.Advice) {
+	case advice.Critical:
+		return 2, nil
+	case advice.Warn:
+		return 1, nil
+	}
+	return 0, nil
 }
 
 // printRequests prints the last few finished requests, newest last.

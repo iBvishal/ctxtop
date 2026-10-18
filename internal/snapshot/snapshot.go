@@ -14,6 +14,19 @@ type Snapshot struct {
 	Time    time.Time `json:"time"`
 	Host    Host      `json:"host"`
 	Servers []Server  `json:"servers"`
+	Advice  []Advice  `json:"advice,omitempty"`
+}
+
+// Advice is one thing worth changing, from the rules in internal/advice.
+type Advice struct {
+	// Rule is a stable id, such as "context-full".
+	Rule string `json:"rule"`
+	// Level is "info", "warn" or "critical".
+	Level string `json:"level"`
+	// Subject is what it's about: a model, a slot or the machine.
+	Subject string `json:"subject"`
+	Message string `json:"message"`
+	Fix     string `json:"fix"`
 }
 
 // Host is the machine's memory state. Sizes are bytes; zero means unknown.

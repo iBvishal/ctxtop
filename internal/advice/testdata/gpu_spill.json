@@ -1,0 +1,11 @@
+{
+  "version": 1, "time": "2026-10-18T12:00:00Z",
+  "host": {"os": "darwin", "arch": "arm64", "mem_total": 17179869184, "mem_used": 15032385536, "pressure": "normal"},
+  "servers": [
+    {"runtime": "ollama", "url": "http://127.0.0.1:11434", "models": [
+      {"name": "qwen3:14b", "quant": "Q4_K_M", "context_size": 8192, "mem": 10307921510, "mem_gpu": 7945689497},
+      {"name": "llama3.3:70b", "quant": "Q2_K", "context_size": 4096, "mem": 26843545600, "mem_gpu": 10737418240},
+      {"name": "nomic-embed-text:latest", "context_size": 2048, "mem": 849018880, "mem_gpu": 849018880}
+    ]}
+  ]
+}

@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/iBvishal/ctxtop/internal/advice"
 	"github.com/iBvishal/ctxtop/internal/discover"
 	"github.com/iBvishal/ctxtop/internal/hw"
 	"github.com/iBvishal/ctxtop/internal/llamacpp"
@@ -34,6 +35,8 @@ type Collector struct {
 	// Discover and ReadHost are replaced in tests.
 	Discover func(ctx context.Context) []discover.Found
 	ReadHost func() snapshot.Host
+	// Advice evaluates each snapshot; nil means no advice.
+	Advice *advice.Engine
 
 	entries      []entry
 	lastDiscover time.Time
@@ -44,7 +47,7 @@ type Collector struct {
 // discovery finds when urls is empty.
 func New(urls []string) *Collector {
 	d := discover.New()
-	c := &Collector{ReadHost: hw.Read}
+	c := &Collector{ReadHost: hw.Read, Advice: advice.New()}
 	if len(urls) == 0 {
 		c.Discover = d.Find
 		return c
@@ -92,12 +95,16 @@ func (c *Collector) Snapshot(ctx context.Context) snapshot.Snapshot {
 		servers = append(servers, s)
 	}
 
-	return snapshot.Snapshot{
+	snap := snapshot.Snapshot{
 		Version: snapshot.Version,
 		Time:    time.Now().UTC().Truncate(time.Millisecond),
 		Host:    c.ReadHost(),
 		Servers: servers,
 	}
+	if c.Advice != nil {
+		snap.Advice = c.Advice.Evaluate(snap)
+	}
+	return snap
 }
 
 // refresh replaces the server list, keeping the pollers of servers still

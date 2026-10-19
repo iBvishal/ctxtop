@@ -55,6 +55,8 @@ func TestScenarios(t *testing.T) {
 		{"pressure.json", []string{"memory-pressure:critical"}},
 		{"pressure_other_apps.json", []string{"memory-pressure:warn"}},
 		{"pressure_unknown_size.json", []string{"memory-pressure:warn"}},
+		{"pressure_no_models.json", []string{"memory-pressure:warn"}},
+		{"pressure_no_servers.json", []string{"memory-pressure:critical"}},
 		{"unloading_soon.json", []string{"unloading-soon:info"}},
 	}
 	for _, c := range cases {
@@ -99,6 +101,9 @@ func TestMessagesCarryTheEvidence(t *testing.T) {
 		// With a model of unknown size, don't claim the models aren't the cause.
 		// Nor name a model too small to matter.
 		{"pressure_unknown_size.json", "memory", []string{"plus 1 whose size isn't reported", "Unload a model you aren't using, or close other apps."}},
+		// Pressure still matters with nothing loaded: it decides whether a model fits.
+		{"pressure_no_models.json", "memory", []string{"pressure is warn", "No models are loaded"}},
+		{"pressure_no_servers.json", "memory", []string{"pressure is critical", "No models are loaded"}},
 	}
 	for _, c := range checks {
 		a := find(run(t, c.file), c.subject)
@@ -106,6 +111,16 @@ func TestMessagesCarryTheEvidence(t *testing.T) {
 		for _, want := range c.in {
 			if !strings.Contains(text, want) {
 				t.Errorf("%s / %s: missing %q in %q", c.file, c.subject, want, text)
+			}
+		}
+	}
+}
+
+func TestNoModelsNotBlamed(t *testing.T) {
+	for _, file := range []string{"pressure_no_models.json", "pressure_no_servers.json"} {
+		for _, a := range run(t, file) {
+			if strings.Contains(a.Message+" "+a.Fix, "models aren't") {
+				t.Errorf("%s: blames models that aren't loaded: %q", file, a.Fix)
 			}
 		}
 	}

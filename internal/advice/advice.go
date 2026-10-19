@@ -272,6 +272,9 @@ func modelShare(loaded []loadedModel, memTotal uint64) string {
 // memoryFix points at the largest model, unless models clearly aren't what
 // fills memory, or the largest known one is too small to matter.
 func memoryFix(loaded []loadedModel, memTotal uint64) string {
+	if len(loaded) == 0 {
+		return "No models are loaded, so other apps are using the memory. Close some before loading a model."
+	}
 	if unknownSize(loaded) == 0 && memTotal > 0 && totalMem(loaded) < memTotal/4 {
 		return "The models aren't the main cause: other apps are using most of the memory. Close some, or larger models will swap."
 	}

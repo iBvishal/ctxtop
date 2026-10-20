@@ -1,0 +1,94 @@
+# HELP ctxtop_build_info ctxtop's version; always 1.
+# TYPE ctxtop_build_info gauge
+ctxtop_build_info{version="v0.2.0"} 1
+# HELP ctxtop_last_poll_timestamp_seconds When the servers and host were last read, as a Unix time.
+# TYPE ctxtop_last_poll_timestamp_seconds gauge
+ctxtop_last_poll_timestamp_seconds 1792324800
+# HELP ctxtop_host_memory_total_bytes Physical memory.
+# TYPE ctxtop_host_memory_total_bytes gauge
+ctxtop_host_memory_total_bytes 17179869184
+# HELP ctxtop_host_memory_used_bytes Physical memory in use.
+# TYPE ctxtop_host_memory_used_bytes gauge
+ctxtop_host_memory_used_bytes 12884901888
+# HELP ctxtop_host_swap_total_bytes Swap size.
+# TYPE ctxtop_host_swap_total_bytes gauge
+ctxtop_host_swap_total_bytes 2147483648
+# HELP ctxtop_host_swap_used_bytes Swap in use.
+# TYPE ctxtop_host_swap_used_bytes gauge
+ctxtop_host_swap_used_bytes 1073741824
+# HELP ctxtop_host_memory_pressure Memory pressure as the OS reports it: 0 normal, 1 warn, 2 critical.
+# TYPE ctxtop_host_memory_pressure gauge
+ctxtop_host_memory_pressure 1
+# HELP ctxtop_host_gpu_utilization_ratio Fraction of time the GPU was busy.
+# TYPE ctxtop_host_gpu_utilization_ratio gauge
+ctxtop_host_gpu_utilization_ratio 0.81
+# HELP ctxtop_host_gpu_memory_used_bytes GPU memory in use.
+# TYPE ctxtop_host_gpu_memory_used_bytes gauge
+ctxtop_host_gpu_memory_used_bytes 1073741824
+# HELP ctxtop_host_power_watts Average power since the previous read.
+# TYPE ctxtop_host_power_watts gauge
+ctxtop_host_power_watts{component="cpu"} 4.2
+ctxtop_host_power_watts{component="gpu"} 9.8
+ctxtop_host_power_watts{component="ane"} 0
+# HELP ctxtop_server_up 1 when the server was read, 0 when it was found but couldn't be read.
+# TYPE ctxtop_server_up gauge
+ctxtop_server_up{runtime="llama.cpp",url="http://127.0.0.1:8080"} 1
+ctxtop_server_up{runtime="ollama",url="http://127.0.0.1:11434"} 1
+ctxtop_server_up{runtime="lmstudio",url="http://127.0.0.1:1234"} 1
+ctxtop_server_up{runtime="llama.cpp",url="http://127.0.0.1:8081"} 0
+# HELP ctxtop_server_info A discovered server; always 1.
+# TYPE ctxtop_server_info gauge
+ctxtop_server_info{runtime="llama.cpp",url="http://127.0.0.1:8080",build="b11669",process="llama-server"} 1
+ctxtop_server_info{runtime="ollama",url="http://127.0.0.1:11434",build="0.40.6",process="ollama"} 1
+ctxtop_server_info{runtime="lmstudio",url="http://127.0.0.1:1234",build="",process=""} 1
+ctxtop_server_info{runtime="llama.cpp",url="http://127.0.0.1:8081",build="",process=""} 1
+# HELP ctxtop_model_context_size_tokens The model's context size.
+# TYPE ctxtop_model_context_size_tokens gauge
+ctxtop_model_context_size_tokens{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf"} 16384
+ctxtop_model_context_size_tokens{runtime="ollama",url="http://127.0.0.1:11434",model="qwen3:14b"} 8192
+# HELP ctxtop_model_memory_bytes Memory the model uses.
+# TYPE ctxtop_model_memory_bytes gauge
+ctxtop_model_memory_bytes{runtime="ollama",url="http://127.0.0.1:11434",model="qwen3:14b"} 10737418240
+# HELP ctxtop_model_memory_gpu_bytes The part of the model's memory in GPU memory.
+# TYPE ctxtop_model_memory_gpu_bytes gauge
+ctxtop_model_memory_gpu_bytes{runtime="ollama",url="http://127.0.0.1:11434",model="qwen3:14b"} 7516192768
+# HELP ctxtop_model_memory_cpu_bytes The part of the model's memory that spilled to CPU RAM.
+# TYPE ctxtop_model_memory_cpu_bytes gauge
+ctxtop_model_memory_cpu_bytes{runtime="ollama",url="http://127.0.0.1:11434",model="qwen3:14b"} 3221225472
+# HELP ctxtop_model_queued_requests Requests waiting for a free slot.
+# TYPE ctxtop_model_queued_requests gauge
+ctxtop_model_queued_requests{runtime="lmstudio",url="http://127.0.0.1:1234",model="qwen3-4b"} 2
+# HELP ctxtop_model_parallel_slots Requests the model serves at once.
+# TYPE ctxtop_model_parallel_slots gauge
+ctxtop_model_parallel_slots{runtime="lmstudio",url="http://127.0.0.1:1234",model="qwen3-4b"} 1
+# HELP ctxtop_model_unload_timestamp_seconds When the runtime will unload the idle model, as a Unix time.
+# TYPE ctxtop_model_unload_timestamp_seconds gauge
+ctxtop_model_unload_timestamp_seconds{runtime="ollama",url="http://127.0.0.1:11434",model="qwen3:14b"} 1792325070
+# HELP ctxtop_slot_busy 1 while the slot is processing a request.
+# TYPE ctxtop_slot_busy gauge
+ctxtop_slot_busy{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="0"} 1
+ctxtop_slot_busy{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="1"} 0
+# HELP ctxtop_slot_context_size_tokens The slot's share of the context.
+# TYPE ctxtop_slot_context_size_tokens gauge
+ctxtop_slot_context_size_tokens{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="0"} 8192
+ctxtop_slot_context_size_tokens{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="1"} 8192
+# HELP ctxtop_slot_context_used_tokens Tokens in the slot's context.
+# TYPE ctxtop_slot_context_used_tokens gauge
+ctxtop_slot_context_used_tokens{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="0"} 7263
+ctxtop_slot_context_used_tokens{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="1"} 0
+# HELP ctxtop_slot_context_fill_ratio Fraction of the slot's context in use.
+# TYPE ctxtop_slot_context_fill_ratio gauge
+ctxtop_slot_context_fill_ratio{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="0"} 0.886
+ctxtop_slot_context_fill_ratio{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="1"} 0
+# HELP ctxtop_slot_generation_tokens_per_second Generation speed between the last two polls.
+# TYPE ctxtop_slot_generation_tokens_per_second gauge
+ctxtop_slot_generation_tokens_per_second{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="0"} 51
+ctxtop_slot_generation_tokens_per_second{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="1"} 0
+# HELP ctxtop_slot_prompt_tokens_per_second Prompt processing speed between the last two polls.
+# TYPE ctxtop_slot_prompt_tokens_per_second gauge
+ctxtop_slot_prompt_tokens_per_second{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="0"} 0
+ctxtop_slot_prompt_tokens_per_second{runtime="llama.cpp",url="http://127.0.0.1:8080",model="gemma-3-4b-it-Q8_0.gguf",slot="1"} 0
+# HELP ctxtop_advice Advice that applies now; always 1. See ctxtop doctor for the message and fix.
+# TYPE ctxtop_advice gauge
+ctxtop_advice{rule="gpu-spill",level="warn",subject="qwen3:14b"} 1
+ctxtop_advice{rule="context-full",level="warn",subject="gemma-3-4b-it-Q8_0.gguf, slot 0"} 1

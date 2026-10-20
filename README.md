@@ -27,6 +27,7 @@ ctxtop                              # live view; q quits, r rescans for servers
 ctxtop --once                       # print one snapshot and exit
 ctxtop --json                       # one snapshot as JSON, for scripts and agents
 ctxtop doctor                       # check once, print only the advice
+ctxtop serve                        # Prometheus metrics on 127.0.0.1:9464/metrics
 ctxtop --url http://127.0.0.1:8081  # read one server, skip discovery
 ```
 
@@ -78,6 +79,32 @@ When memory is short but the loaded models are small, ctxtop says other apps are
 
 `ctxtop doctor` exits 0 when healthy (info only), 1 on warnings and 2 on anything critical, so it works in scripts. A single check can't see swap trends; the live view can.
 
+## Metrics
+
+`ctxtop serve` polls in the background (every 5 seconds, or `--interval`) and serves the latest reading in Prometheus text format at `http://127.0.0.1:9464/metrics`. Use `--addr` to listen elsewhere. Add it to Prometheus as a scrape target:
+
+```yaml
+scrape_configs:
+  - job_name: ctxtop
+    static_configs:
+      - targets: ["127.0.0.1:9464"]
+```
+
+Everything is a gauge, labelled by `runtime`, `url`, `model` and `slot` where they apply:
+
+| Metric | What it is |
+| --- | --- |
+| `ctxtop_slot_generation_tokens_per_second`, `ctxtop_slot_prompt_tokens_per_second` | Speed between the last two polls |
+| `ctxtop_slot_context_fill_ratio`, `ctxtop_slot_context_used_tokens`, `ctxtop_slot_context_size_tokens`, `ctxtop_slot_busy` | Context fill per slot |
+| `ctxtop_model_memory_bytes`, `ctxtop_model_memory_gpu_bytes`, `ctxtop_model_memory_cpu_bytes` | Model memory, and how much spilled to CPU RAM |
+| `ctxtop_model_queued_requests`, `ctxtop_model_parallel_slots`, `ctxtop_model_context_size_tokens`, `ctxtop_model_unload_timestamp_seconds` | Queue, slots, context and unload time |
+| `ctxtop_server_up`, `ctxtop_server_info` | Each server found, and whether it could be read |
+| `ctxtop_host_memory_*_bytes`, `ctxtop_host_swap_*_bytes`, `ctxtop_host_memory_pressure` | Memory, swap and pressure (0 normal, 1 warn, 2 critical) |
+| `ctxtop_host_gpu_utilization_ratio`, `ctxtop_host_gpu_memory_used_bytes`, `ctxtop_host_power_watts` | GPU and power (macOS) |
+| `ctxtop_advice{rule,level,subject}` | 1 for each piece of advice that applies now |
+
+Metrics a runtime doesn't report are left out rather than set to 0. Alert on `ctxtop_advice{level="critical"}` to get the same checks as `ctxtop doctor`.
+
 ## What it reads
 
 | Runtime | Source | What you get |
@@ -94,7 +121,7 @@ A one-off snapshot only catches what happens during its one-second sample. Recen
 
 ## Privacy
 
-ctxtop only sends `GET` requests to servers on your own machine and runs the `lms` CLI read-only. It never shows prompt or output text: LM Studio's log stream includes the generated text, and ctxtop decodes only the stats from it. Nothing is sent anywhere else and there is no telemetry.
+ctxtop only sends `GET` requests to servers on your own machine and runs the `lms` CLI read-only. `ctxtop serve` listens on 127.0.0.1 unless you pass another `--addr`; its metrics include model names but never prompts or output. It never shows prompt or output text: LM Studio's log stream includes the generated text, and ctxtop decodes only the stats from it. Nothing is sent anywhere else and there is no telemetry.
 
 Polling Ollama adds `GET /api/ps` and `GET /api/version` lines to Ollama's own access log.
 

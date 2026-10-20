@@ -5,6 +5,7 @@
 - Field names come from the runtime's source, not blog posts. Note the version you checked against in the test fixture or package comment.
 - ctxtop only sends GET requests to localhost (and runs `lms` read-only), never keeps or prints prompt or output text, and has no telemetry. Keep it that way: decode only the fields you need.
 - Keep the live view cheap: it should stay around 1% CPU. Profile before adding anything that runs every poll (`runtime/pprof` around `collect.Snapshot`); IOReport sampling is the known expensive call.
-- The JSON in `internal/snapshot` is a public interface. Adding a field is fine; renaming or removing one bumps `snapshot.Version`.
+- `ctxtop serve` listens on 127.0.0.1 by default; never default to all interfaces.
+- The JSON in `internal/snapshot` is a public interface, and so are the metric names in `internal/metrics`. Adding a field is fine; renaming or removing one bumps `snapshot.Version`.
 - Demo data only in fixtures, README and screenshots. No real paths, hostnames or prompts.
 - Commits and PRs carry no AI attribution lines.
